@@ -1,397 +1,151 @@
-/*
-	This class implements interaction with UDF-compatible datafeed.
-	See UDF protocol reference at
-	https://github.com/tradingview/charting_library/wiki/UDF
-*/
-class Datafeeds {
-  constructor(mgr, updateFrequency) {
-    this._mgr = mgr
-    this._configuration = undefined
+const metaInterval = ["1D", "1W", "1M"];
 
-    this._barsPulseUpdater = new DataPulseUpdater(this, updateFrequency || 10 * 1000)
-
-    this._enableLogging = false
-    this._initializationFinished = false
-    this._callbacks = {}
-
-    this._initialize()
+export default class DataFeed {
+  constructor(context, options) {
+    this._subscribers = {};
+    this.v = context;
+    this.options = options;
   }
+
+
+  update = (data) => {
+    metaInterval.includes(data.interval) ? data.time = (data.time + (24 * 60 * 60)) * 1000 : data.time *= 1000;
+    for (let i in this._subscribers) {
+      let item = this._subscribers[i];
+      item.onRealtimeCallback(data);
+    }
+  };
+
+
   /**
-   * 默认配置
-   */
-  defaultConfiguration() {
-    return {
-      supports_search: false,
-      supports_group_request: false,
-      supported_resolutions: ['1', '5', '15', '30', '60', '1D', '2D', '3D', '1W', '1M'],
-      supports_marks: true,
-      supports_timescale_marks: true,
-      supports_time: true,
-      exchanges: [{
-        value: '',
-        name: 'All Exchanges',
-        desc: ''
-      }],
-      symbols_types: [{
-        name: 'All types',
-        value: ''
-      }]
-    }
-  }
+   * @param callBack: function(configurationData) i.configurationData: object
+   * 此方法旨在提供填充配置数据的对象
+   * */
+  onReady = callBack => new Promise(resolve => {
+    resolve();
+  }).then(() => callBack(DataFeed.defaultConfiguration()));
+
   /**
-   * 获取服务端时间
-   * @param {*Function 回调函数} callback 
-   */
-  getServerTime(callback) {
-    if (this._configuration.supports_time) {
-      const self = this
-      setTimeout(function () {
-        callback(self._mgr.getServerTime())
-      }, 10)
-    }
-  }
+   * @param userInput: string，用户在商品搜索框中输入的文字
+   * @param exchange:string，请求的交易所（由用户选择）。空值表示没有指定
+   * @param symbolType: string，请求的商品类型：指数、股票、外汇等等（由用户选择）。空值表示没有指定
+   * @param onResultReadyCallback: function(result) result: 数组
+   * 方法介绍：通过商品名称解析商品信息(SymbolInfo)
+   * */
+  searchSymbols = (userInput, exchange, symbolType, onResultReadyCallback) => {
+  };
+
   /**
-   * 绑定事件
-   * @param {*String 事件名} event 
-   * @param {*Function 回调函数} callback 
-   */
-  on(event, callback) {
-    if (!this._callbacks.hasOwnProperty(event)) {
-      this._callbacks[event] = []
+   * @param symbolName: string类型，商品名称 或ticker if provided.
+   * @param onSymbolResolvedCallback: function(SymbolInfo)
+   * @param onResolveErrorCallback: function(reason)
+   * 方法介绍：通过商品名称解析商品信息(SymbolInfo)
+   * */
+  resolveSymbol = (symbolName, onSymbolResolvedCallback, onResolveErrorCallback) => new Promise((resolve, reject) => {
+    let symbolInfo = DataFeed.defaultSymbol();
+    if (this.options) {
+      symbolInfo = {...DataFeed.defaultSymbol(), ...this.options};
     }
+    resolve(symbolInfo); // 异步返回成功结果
+  }).then(result => onSymbolResolvedCallback(result)).catch(() => console.log("onResolveErrorCallback"));
 
-    this._callbacks[event].push(callback)
-    return this
-  }
   /**
-   * 运行事件
-   * @param {*String 事件名} event 
-   * @param {*Undefined 参数} argument 
-   */
-  _fireEvent(event, argument) {
-    if (this._callbacks.hasOwnProperty(event)) {
-      const callbacksChain = this._callbacks[event]
-      for (let i = 0; i < callbacksChain.length; ++i) {
-        callbacksChain[i](argument)
-      }
+   * @param symbolInfo:SymbolInfo 商品信息对象
+   * @param resolution: string （周期）
+   * @param from: unix 时间戳, 最左边请求的K线时间
+   * @param to: unix 时间戳, 最右边请求的K线时间
+   * @param onHistoryCallback: function(数组bars, meta = {noData = false})
+   bars: Bar对象数组{time, close, open, high, low, volume}[]
+   meta: object{noData = true | false, nextTime = unix time}
+   * @param onErrorCallback: function(reason：错误原因)
+   * @param firstDataRequest: 布尔值，以标识是否第一次调用此商品/周期的历史记录。当设置为true时 你可以忽略to参数（这取决于浏览器的Date.now()) 并返回K线数组直到当前K线（包括它）
+   * 方法介绍：通过日期范围获取历史K线数据。图表库希望通过onHistoryCallback仅一次调用，接收所有的请求历史。而不是被多次调用。
+   * */
+  getBars = (symbolInfo, resolution, from, to, onHistoryCallback, onErrorCallback, firstDataRequest) => {
+    const onLoadedCallback = (data) => {
+      let bars = data.bars || [];
+      bars.forEach((item) => item.time = this.periodLengthSeconds(resolution, item));
+      let meta = {noData: data.noData};
+      onHistoryCallback(bars, meta);
+    };
+    this.v.getBars(symbolInfo, resolution, from, to, onLoadedCallback);
+  };
 
-      this._callbacks[event] = []
-    }
-  }
+
   /**
-   * 初始化结束
-   */
-  onInitialized() {
-    this._initializationFinished = true
-    this._fireEvent('initialized')
-  }
-  /**
-   * 打印信息
-   * @param {*String 信息} message 
-   */
-  _logMessage(message) {
-    if (this._enableLogging) {
-      console.log(new Date().toLocaleTimeString() + ' >> ' , message)
-    }
-  }
-  /**
-   * 初始化
-   */
-  _initialize() {
-    const configurationData = this._mgr.getConfig()
-    const defaultConfig = this.defaultConfiguration()
-    if (configurationData) {
-      const conf = Object.assign({}, defaultConfig, configurationData)
-      this._setupWithConfiguration(conf)
-    } else {
-      this._setupWithConfiguration(defaultConfig)
-    }
-  }
-  /**
-   * 填充配置数据
-   * @param {*Function 回调函数} callback 
-   */
-  onReady(callback) {
-    const that = this
-    if (this._configuration) {
-      setTimeout(function () {
-        callback(that._configuration)
-      }, 0)
-    } else {
-      this.on('configuration_ready', function () {
-        callback(that._configuration)
-      })
-    }
-  }
-  /**
-   * 安装配置数据
-   * @param {*Object 配置数据} configurationData 
-   */
-  _setupWithConfiguration(configurationData) {
-    this._configuration = configurationData
+   * @param symbolInfo:SymbolInfo 商品信息对象
+   * @param resolution: string （周期）
+   * @param onRealtimeCallback: function(bar)
+   * bar: object{time, close, open, high, low, volume}
+   * @param subscriberUID: string
+   * @param onResetCacheNeededCallback(从1.7开始): function()将在bars数据发生变化时执行
+   * 方法介绍：订阅K线数据。图表库将调用onRealtimeCallback方法以更新实时数据。
+   * */
+  subscribeBars = (symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) => {
+    this.subscribeDataListener(symbolInfo, resolution, onRealtimeCallback, subscriberUID);
+  };
 
-    if (!configurationData.exchanges) {
-      configurationData.exchanges = []
-    }
-
-    //	@obsolete; remove in 1.5
-    const supportedResolutions = configurationData.supported_resolutions || configurationData.supportedResolutions
-    configurationData.supported_resolutions = supportedResolutions
-
-    //	@obsolete; remove in 1.5
-    const symbolsTypes = configurationData.symbols_types || configurationData.symbolsTypes
-    configurationData.symbols_types = symbolsTypes
-
-    // if (!configurationData.supports_search && !configurationData.supports_group_request) {
-    //   throw new Error('Unsupported datafeed configuration. Must either support search, or support group request')
-    // }
-
-    if (!configurationData.supports_group_request) {
-      this.onInitialized()
-    }
-
-    this._fireEvent('configuration_ready')
-    this._logMessage('Initialized with ' + JSON.stringify(configurationData))
-  }
-  /**
-   * 通过商品名称解析商品信息
-   * @param {*String 商品名称或ticker} symbolName 
-   * @param {*Function(SymbolInfo)} onSymbolResolvedCallback 
-   * @param {*Function(reason)} onResolveErrorCallback 
-   */
-  resolveSymbol(symbolName, onSymbolResolvedCallback, onResolveErrorCallback) {
-    const that = this
-
-    if (!this._initializationFinished) {
-      this.on('initialized', function () {
-        that.resolveSymbol(symbolName, onSymbolResolvedCallback, onResolveErrorCallback)
-      })
-
-      return
-    }
-
-    var resolveRequestStartTime = Date.now()
-    that._logMessage('Resolve requested')
-
-    function onResultReady(data) {
-      let postProcessedData = data
-      if (that.postProcessSymbolInfo) {
-        postProcessedData = that.postProcessSymbolInfo(postProcessedData)
-      }
-
-      that._logMessage('Symbol resolved: ' + (Date.now() - resolveRequestStartTime))
-
-      onSymbolResolvedCallback(postProcessedData)
-    }
-
-    if (!this._configuration.supports_group_request) {
-      setTimeout(function () {
-        const data = that._mgr.resolveTVSymbol(symbolName ? symbolName.toUpperCase() : '')
-        if (data) {
-          onResultReady(data)
-        } else {
-          that._logMessage('Error resolving symbol: ' + symbolName)
-          onResolveErrorCallback('unknown_symbol')
-        }
-      }, 10)
-    }
-  }
-  /**
-   * 
-   * @param {*Object 商品信息对象} symbolInfo 
-   * @param {*String 分辨率} resolution 
-   * @param {*Number 时间戳、最左边请求的K线时间} rangeStartDate 
-   * @param {*Number 时间戳、最右边请求的K线时间} rangeEndDate 
-   * @param {*Function 回调函数} onDataCallback 
-   * @param {*Function 回调函数} onErrorCallback 
-   */
-  getBars(symbolInfo, resolution, rangeStartDate, rangeEndDate, onDataCallback, onErrorCallback) {
-    if (rangeStartDate > 0 && (rangeStartDate + '').length > 10) {
-      throw new Error(['Got a JS time instead of Unix one.', rangeStartDate, rangeEndDate])
-    }
-
-    const onLoadedCallback = function (data) {
-      
-      if (data) {
-        const nodata = data.s === 'no_data'
-
-        if (data.s !== 'ok' && !nodata) {
-          if (!!onErrorCallback) {
-            onErrorCallback(data.s)
-          }
-
-          return
-        }
-
-        const bars = data.bars || []
-        onDataCallback(bars, { noData: nodata, nextTime: data.nextTime })
-      } else {
-        console.warn(['getBars(): error'])
-
-        if (!!onErrorCallback) {
-          onErrorCallback(' error: ')
-        }
-      }
-    }
-
-    this._mgr.getBars(symbolInfo.ticker.toUpperCase(), resolution, rangeStartDate, rangeEndDate, onLoadedCallback)
-  }
-  /**
-   * 订阅K线数据
-   * @param {*Object 商品信息对象} symbolInfo 
-   * @param {*String 分辨率} resolution 
-   * @param {*Function 回调函数} onRealtimeCallback 
-   * @param {*String 监听的唯一标识符} listenerGUID 
-   * @param {*Function 回调函数} onResetCacheNeededCallback 
-   */
-  subscribeBars(symbolInfo, resolution, onRealtimeCallback, listenerGUID, onResetCacheNeededCallback) {
-    console.log("subscribeBars: " + symbolInfo + ", " + resolution + ", " + listenerGUID);
-    this._barsPulseUpdater.subscribeDataListener(symbolInfo, resolution, onRealtimeCallback, listenerGUID, onResetCacheNeededCallback)
-  }
-  /**
-   * 取消订阅K线数据
-   * @param {*String 监听的唯一标识符} listenerGUID 
-   */
-  unsubscribeBars(listenerGUID) {
-    this._barsPulseUpdater.unsubscribeDataListener(listenerGUID)
-  }
-}
-/*
-  This is a pulse updating components for ExternalDatafeed. 
-  They emulates realtime updates with periodic requests.
-*/
-class DataPulseUpdater {
-  constructor(datafeed, updateFrequency) {
-    this._datafeed = datafeed
-    this._datafeed._logMessage('DataPulseUpdater init ' + updateFrequency)
-
-    this._subscribers = {}
-
-    this._requestsPending = 0
-    const that = this
-
-    const update = function () {
-      if (that._requestsPending > 0) {
-        return
-      }
-
-      for (let listenerGUID in that._subscribers) {
-        const subscriptionRecord = that._subscribers[listenerGUID]
-        const resolution = subscriptionRecord.resolution
-
-        const datesRangeRight = that._datafeed._mgr.getServerTime()
-
-        //	BEWARE: please note we really need 2 bars, not the only last one
-        //	see the explanation below. `10` is the `large enough` value to work around holidays
-        const datesRangeLeft = datesRangeRight - that.periodLengthSeconds(resolution, 10)
-
-        that._requestsPending++
-
-        (function (_subscriptionRecord) {
-          that._datafeed.getBars(_subscriptionRecord.symbolInfo, resolution, datesRangeLeft, datesRangeRight, function (bars) {
-            that._requestsPending--
-
-            //	means the subscription was cancelled while waiting for data
-            if (!that._subscribers.hasOwnProperty(listenerGUID)) {
-              return
-            }
-
-            if (bars.length === 0) {
-              return
-            }
-
-            const lastBar = bars[bars.length - 1]
-            if (!isNaN(_subscriptionRecord.lastBarTime) && lastBar.time < _subscriptionRecord.lastBarTime) {
-              return
-            }
-
-            const subscribers = _subscriptionRecord.listeners
-
-            //	BEWARE: this one isn't working when first update comes and this update makes a new bar. In this case
-            //	_subscriptionRecord.lastBarTime = NaN
-            const isNewBar = !isNaN(_subscriptionRecord.lastBarTime) && lastBar.time > _subscriptionRecord.lastBarTime
-
-            //	Pulse updating may miss some trades data (ie, if pulse period = 10 secods and new bar is started 5 seconds later after the last update, the
-            //	old bar's last 5 seconds trades will be lost). Thus, at fist we should broadcast old bar updates when it's ready.
-            if (isNewBar) {
-              if (bars.length < 2) {
-                throw new Error('Not enough bars in history for proper pulse update. Need at least 2.')
-              }
-
-              const previousBar = bars[bars.length - 2]
-              for (let i = 0; i < subscribers.length; ++i) {
-                subscribers[i](previousBar)
-              }
-            }
-
-            _subscriptionRecord.lastBarTime = lastBar.time
-
-            for (let j = 0; j < subscribers.length; ++j) {
-              subscribers[j](lastBar)
-            }
-          },
-
-            //	on error
-            function () {
-              that._requestsPending--
-            })
-        })(subscriptionRecord)
-      }
-    }
-
-    if (typeof updateFrequency != 'undefined' && updateFrequency > 0) {
-      setInterval(update, updateFrequency)
-    }
-  }
-  /**
-   * 取消订阅数据
-   * @param {*String 监听的唯一标识符} listenerGUID 
-   */
-  unsubscribeDataListener(listenerGUID) {
-    this._datafeed._logMessage('Unsubscribing ' + listenerGUID)
-    delete this._subscribers[listenerGUID]
-  }
   /**
    * 订阅数据
-   * @param {*Object 商品信息对象} symbolInfo 
-   * @param {*String 分辨率} resolution 
-   * @param {*Object 回调数据} newDataCallback 
-   * @param {*String 监听的唯一标识符} listenerGUID 
+   * @param symbolInfo:SymbolInfo 商品信息对象
+   * @param resolution: string （周期）
+   * @param onRealtimeCallback: function(bar)
+   * @param subscriberUID: string
    */
-  subscribeDataListener(symbolInfo, resolution, newDataCallback, listenerGUID) {
-    this._datafeed._logMessage('Subscribing ' + listenerGUID)
-
-    if (!this._subscribers.hasOwnProperty(listenerGUID)) {
-      this._subscribers[listenerGUID] = {
+  subscribeDataListener = (symbolInfo, resolution, onRealtimeCallback, subscriberUID) => {
+    if (!this._subscribers.hasOwnProperty(subscriberUID)) {
+      this._subscribers[subscriberUID] = {
         symbolInfo: symbolInfo,
         resolution: resolution,
-        lastBarTime: NaN,
-        listeners: []
-      }
+        listeners: [],
+        onRealtimeCallback
+      };
     }
+    this._subscribers[subscriberUID].listeners.push(onRealtimeCallback);
+  };
 
-    this._subscribers[listenerGUID].listeners.push(newDataCallback)
-  }
+  unsubscribeBars = subscriberUID => {
+    delete this._subscribers[subscriberUID];
+  };
+
   /**
-   * 
-   * @param {*String 分辨率} resolution 
-   * @param {*Number 周期范围} requiredPeriodsCount 
-   */
-  periodLengthSeconds(resolution, requiredPeriodsCount) {
-    let daysCount = 0
+   * exchanges                    一个交易所数组
+   * symbols_types                一个商品类型过滤器数组
+   * supported_resolutions        一个表示服务器支持的周期数组
+   * supports_marks               布尔值来标识您的 datafeed 是否支持在K线上显示标记
+   * supports_timescale_marks     布尔值来标识您的 datafeed 是否支持时间刻度标记
+   * supports_time                将此设置为true假如您的datafeed提供服务器时间（unix时间）
+   * */
+  static defaultConfiguration = () => ({
+    exchanges: [{value: '', name: 'Piexgo', desc: ''}],
+    symbols_types: [{name: 'All types', value: ''}],
+    supported_resolutions: ['1', '5', '15', '30', '60', '120', '240', '720', '1D', '1W', '1M'],
+    supports_marks: true,
+    supports_timescale_marks: true,
+    supports_time: true,
+  });
 
-    if (resolution === 'D') {
-      daysCount = requiredPeriodsCount
-    } else if (resolution === 'M') {
-      daysCount = 31 * requiredPeriodsCount
-    } else if (resolution === 'W') {
-      daysCount = 7 * requiredPeriodsCount
-    } else {
-      daysCount = requiredPeriodsCount * resolution / (24 * 60)
-    }
 
-    return daysCount * 24 * 60 * 60
+  static defaultSymbol = () => ({
+    name: 'BTC_USDT', // 商品名称。您的用户将看到它(作为一个字符串)。 此外，如果您不使用 tickers ，它将用于数据请求。
+    'exchange-traded': '',
+    'exchange-listed': '',
+    timezone: 'Asia/Singapore', // 这个商品的交易所时区。我们希望以olsondb格式获取时区的名称
+    minmov: 1, // 最小波动
+    pointvalue: 1,
+    fractional: false, // 分数价格
+    session: '24x7', // 商品交易时间
+    has_intraday: true, // 布尔值显示商品是否具有日内（分钟）历史数据
+    has_daily: true, // 布尔值显示商品是否具有以日为单位的历史数据
+    has_weekly_and_monthly: true, // 布尔值显示商品是否具有以W和M为单位的历史数据
+    has_no_volume: false,
+    description: 'BTC_USDT',
+    pricescale: 100, // 价格精度
+    ticker: 'BTC_USDT',
+    supported_resolutions: ['1', '5', '15', '30', '60', '120', '240', '720', '1D', '1W', '1M'],
+  });
+
+  periodLengthSeconds(resolution, item) {
+    return metaInterval.includes(resolution) ? item.time = (item.time + (24 * 60 * 60)) * 1000 : item.time *= 1000;
   }
 }
-
-export default Datafeeds
