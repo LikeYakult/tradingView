@@ -1,8 +1,3 @@
-# tradingview-websocket
-WebSocket数据由[node-websocket](https://github.com/LikeYakult/node-websocket)提供
-请先运行[node-websocket](https://github.com/LikeYakult/node-websocket)项目
-> A Vue.js project
-
 ## Build Setup
 
 ``` bash
@@ -10,7 +5,7 @@ WebSocket数据由[node-websocket](https://github.com/LikeYakult/node-websocket)
 npm install
 
 # serve with hot reload at localhost:8080
-npm run dev
+npm run serve
 
 # build for production with minification
 npm run build
