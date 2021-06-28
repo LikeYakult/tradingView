@@ -1,25 +1,23 @@
 <template>
-  <div id="app">
-    <TradeView/>
-  </div>
+    <div id="app">
+        <TradingView elementsId="tradingview_container" />
+    </div>
 </template>
 
 <script>
-import TradeView from './components/TradeView'
-
 export default {
-  name: 'App',
-  components: {
-    TradeView
-  }
+    name: "App",
 }
 </script>
 
 <style>
-html, body, #app {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html, body, #app, .trading-wrap, .trading-container, .trading-chart {
+    width: 100%;
+    height: 100%;
 }
 </style>
