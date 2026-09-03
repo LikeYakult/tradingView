@@ -1,0 +1,1 @@
+http://10.241.184.34:8075/report/queryBatchInfq
