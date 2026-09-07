@@ -1,1 +1,3 @@
 http://10.241.184.34:8075/report/queryBatchInfq
+
+扫描当前项目的代码结构和业务逻辑
