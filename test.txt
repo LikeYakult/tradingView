@@ -75,3 +75,46 @@ http://10.241.184.34:8075/report/queryBatchInfo
 
 
 请实现
+
+
+
+现在需要新接入一个接口，是查询下拉列表的接口，接口地址如下
+/report/querySelectInfo
+
+
+返回结构如下：
+{
+    "result": {
+        "format": [
+            {
+                "code": "Batch01",
+                "name": "1111"
+            }
+        ],
+        "orientation": [
+            {
+                "code": "Batch01",
+                "name": "1111"
+            }
+        ],
+        "device": [
+            {
+                "code": "Batch01",
+                "name": "1111"
+            }
+        ],
+        "language": [
+            {
+                "code": "Batch01",
+                "name": "1111"
+            }
+        ]
+    },
+    "errors": [],
+    "warnings": [],
+    "code": 1,
+    "success": true,
+    "message": ""
+}
+
+请实现
