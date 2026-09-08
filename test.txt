@@ -5,29 +5,30 @@ http://10.241.184.34:8075/report/queryBatchInfo
 我主要负责css-bizrpt项目，你分析一下这个项目的代码结构和业务逻辑
 
 
-现在需要新接入一个接口，是分类名称的接口，接口地址如下
-/report/queryCategoryInfo
+现在需要新接入一个接口，是表格数据的接口，接口地址如下
+/report/queryCondition
 
 参数如下
 {
-  pageNum: 99999,
-  pageSize: 1
+  reportId: ""
 }
 
 返回结构如下：
 {
-    "result": {
-        "records": [
-            {
-                "reportGroupId": "Batch01",
-                "reportGroupName": "1111"
-            }
-        ],
-        "total": 24,
-        "size": 1,
-        "current": 1,
-        "pages": 24
-    },
+    "result": [
+        {
+            "type": "1",
+            "condition": "open settled balance",
+            "selection": [
+                {
+                    "name": "all",
+                    "idDefault": "Y"
+                }
+            ],
+            "from": "11",
+            "to": "22"
+        }
+    ],
     "errors": [],
     "warnings": [],
     "code": 1,
@@ -35,86 +36,6 @@ http://10.241.184.34:8075/report/queryBatchInfo
     "message": ""
 }
 
-请实现
-
-这个category文件是归属于report模块的，接口尽量写在report里面
-
-
-
-
-现在需要新接入一个接口，是查询报表名称的接口，逻辑是惦记类别后，根据类别名称请求，替换报表名称，接口地址如下
-/report/queryReportInfo
-
-参数如下
-{
-  pageNum: 99999,
-  pageSize: 1,
-  reportGroupId: ""
-}
-
-返回结构如下：
-{
-    "result": {
-        "records": [
-            {
-                "reportId": "Batch01",
-                "reportName": "1111"
-            }
-        ],
-        "total": 24,
-        "size": 1,
-        "current": 1,
-        "pages": 24
-    },
-    "errors": [],
-    "warnings": [],
-    "code": 1,
-    "success": true,
-    "message": ""
-}
-
-
-请实现
-
-
-
-现在需要新接入一个接口，是查询下拉列表的接口，接口地址如下
-/report/querySelectInfo
-
-
-返回结构如下：
-{
-    "result": {
-        "format": [
-            {
-                "code": "Batch01",
-                "name": "1111"
-            }
-        ],
-        "orientation": [
-            {
-                "code": "Batch01",
-                "name": "1111"
-            }
-        ],
-        "device": [
-            {
-                "code": "Batch01",
-                "name": "1111"
-            }
-        ],
-        "language": [
-            {
-                "code": "Batch01",
-                "name": "1111"
-            }
-        ]
-    },
-    "errors": [],
-    "warnings": [],
-    "code": 1,
-    "success": true,
-    "message": ""
-}
+然后这个表格的第二列是一个下拉框，值是根据接口的selection来操作，这个也需要修改下
 
 请实现
