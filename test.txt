@@ -36,3 +36,42 @@ http://10.241.184.34:8075/report/queryBatchInfo
 }
 
 请实现
+
+这个category文件是归属于report模块的，接口尽量写在report里面
+
+
+
+
+现在需要新接入一个接口，是查询报告的接口，接口地址如下
+/report/queryReportInfo
+
+参数如下
+{
+  pageNum: 99999,
+  pageSize: 1,
+  reportGroupId: ""
+}
+
+返回结构如下：
+{
+    "result": {
+        "records": [
+            {
+                "reportId": "Batch01",
+                "reportName": "1111"
+            }
+        ],
+        "total": 24,
+        "size": 1,
+        "current": 1,
+        "pages": 24
+    },
+    "errors": [],
+    "warnings": [],
+    "code": 1,
+    "success": true,
+    "message": ""
+}
+
+
+请实现
