@@ -1,3 +1,38 @@
-http://10.241.184.34:8075/report/queryBatchInfq
+http://10.241.184.34:8075/report/queryBatchInfo
 
 扫描当前项目的代码结构和业务逻辑
+
+我主要负责css-bizrpt项目，你分析一下这个项目的代码结构和业务逻辑
+
+
+现在需要新接入一个接口，是分类名称的接口，接口地址如下
+/report/queryCategoryInfo
+
+参数如下
+{
+  pageNum: 99999,
+  pageSize: 1
+}
+
+返回结构如下：
+{
+    "result": {
+        "records": [
+            {
+                "reportGroupId": "Batch01",
+                "reportGroupName": "1111"
+            }
+        ],
+        "total": 24,
+        "size": 1,
+        "current": 1,
+        "pages": 24
+    },
+    "errors": [],
+    "warnings": [],
+    "code": 1,
+    "success": true,
+    "message": ""
+}
+
+请实现
