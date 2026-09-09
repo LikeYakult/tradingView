@@ -80,3 +80,6 @@ http://10.241.184.34:8075/report/queryBatchInfo
 
 这个from和to需要修改一处逻辑，当从queryCondition获取数据后，有一个type字段，为1是下拉框，为2是条件看，当type=2的时候，同时selection下拉选中range的时候，form和to应该是一个input可以填写日期
 
+
+不是日期输入框，而是普通的文本输入框
+
